@@ -35,7 +35,7 @@ import { StripButton } from "./dock/StripButton"
 import { EmptySection } from "./EmptySection"
 import { THUMBNAIL_TILE, useSeen } from "./PieceThumbnail"
 import { SectionTitle } from "./SectionTitle"
-import { SitePrefabsSection } from "./SitePrefabs"
+import { ProtoPanelBody, ProtoPicker } from "./prototype/SitePlacement"
 
 /** Everything in the definition, framed whole; a glyph until that has rendered, and for a file that won't read. */
 export function PrefabThumbnail({ prefab }: { readonly prefab: PrefabInfo }) {
@@ -227,20 +227,8 @@ export function PrefabsPanel() {
   const terms = termsOf(query)
   const inTier = (tier: PrefabTier) =>
     prefabs.filter((p) => p.tier === tier && terms.every((term) => p.name.toLowerCase().includes(term)))
-  return (
-    <aside className="flex h-full min-w-0 flex-col gap-2 bg-card p-2">
-      <Input
-        type="search"
-        aria-label="Filter the prefabs"
-        placeholder="Filter prefabs…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setQuery("")
-        }}
-      />
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-3">
+  const tierSections = (
+    <>
           {(projects ? DESKTOP_TIERS : BROWSER_TIERS).map(({ hint, tier }) => (
             <section key={tier} className="flex flex-col gap-1">
               <Tooltip>
@@ -262,9 +250,34 @@ export function PrefabsPanel() {
                 : <EmptySection line="No prefabs yet." />}
             </section>
           ))}
-          {site && <SitePrefabsSection query={query} />}
-        </div>
-      </ScrollArea>
+    </>
+  )
+  return (
+    <aside className="flex h-full min-w-0 flex-col gap-2 bg-card p-2">
+      <Input
+        type="search"
+        aria-label="Filter the prefabs"
+        placeholder="Filter prefabs…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setQuery("")
+        }}
+      />
+      {/* PROTOTYPE (grill-design, site placement): each variant lays out what is under the filter */}
+      {site
+        ? (
+          <>
+            <ProtoPanelBody query={query} tiers={tierSections} />
+            <ProtoPicker />
+          </>
+        )
+        : (
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="flex flex-col gap-3">{tierSections}</div>
+          </ScrollArea>
+        )}
+      {/* END PROTOTYPE */}
     </aside>
   )
 }

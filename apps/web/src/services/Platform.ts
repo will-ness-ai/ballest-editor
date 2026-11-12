@@ -623,12 +623,39 @@ const makeMemoryPrefabs = () => {
   }
 }
 
+// PROTOTYPE (grill-design, site placement): in `vite dev` with `?variant=`, the browser build reads the site through
+// vite's /proto-site proxy, so the round's pictures can be drawn without the desktop app. Never merged.
+const PROTO_SITE = import.meta.env.DEV && typeof location !== "undefined" &&
+  new URLSearchParams(location.search).has("variant")
+const protoFetch = <A>(path: string, read: (r: Response) => Promise<A>) =>
+  Effect.tryPromise({
+    try: () => fetch(`/proto-site${path}`).then((r) => r.ok ? read(r) : Promise.reject(new Error(String(r.status)))),
+    catch: () => new PlatformError({ message: "Couldn't reach ballestrecords.com." })
+  })
+const protoList = (query: string, cursor: number | null) => {
+  const params = new URLSearchParams({ sort: "popular", limit: "50" })
+  if (query.trim() !== "") params.set("q", query.trim())
+  if (cursor !== null) params.set("cursor", String(cursor))
+  return protoFetch(`/api/prefab-list?${params}`, (r) => r.json() as Promise<SitePrefabPage>)
+}
+const protoThumb = (slug: string) =>
+  protoFetch(`/api/prefabs/${slug}/thumb`, async (r) => {
+    const blob = await r.blob()
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.readAsDataURL(blob)
+    })
+  }).pipe(Effect.orElseSucceed(() => null))
+const protoFile = (slug: string) => protoFetch(`/api/prefabs/${slug}/file`, (r) => r.text())
+// END PROTOTYPE
+
 const makeBrowser = (): Platform["Service"] => {
   // a browser has no game to link; "Don't show again" lasts until the page closes
   const muted = new Set<string>()
   return Platform.of({
     ...makeMemoryPrefabs(),
-    capabilities: browserCapabilities,
+    capabilities: { ...browserCapabilities, site: PROTO_SITE },
     runtimeVersions: null,
     pickMapFile: pickFile(".balledit,.ballmap,.json").pipe(
       Effect.flatMap(Option.match({
@@ -708,9 +735,9 @@ const makeBrowser = (): Platform["Service"] => {
     sendFeedback: () => desktopOnly,
     usageStats: Effect.succeed({ enabled: false, noticeShown: true, collecting: false }),
     setUsageStats: () => desktopOnly,
-    listSitePrefabs: () => desktopOnly,
-    readSitePrefabThumb: () => Effect.succeed(null),
-    readSitePrefab: () => desktopOnly,
+    listSitePrefabs: (query, cursor) => PROTO_SITE ? protoList(query, cursor) : desktopOnly,
+    readSitePrefabThumb: (slug) => PROTO_SITE ? protoThumb(slug) : Effect.succeed(null),
+    readSitePrefab: (slug) => PROTO_SITE ? protoFile(slug) : desktopOnly,
     siteAccount: Effect.succeed({ _tag: "SignedOut" }),
     signInToSite: desktopOnly,
     signOutOfSite: Effect.void,

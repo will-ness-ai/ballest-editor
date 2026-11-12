@@ -86,7 +86,16 @@ const repoAssets = (): Plugin => {
 const devServer = () => {
   const host = process.env["HOST"] ?? "localhost"
   const port = Number(process.env["PORT"] ?? 3000)
-  return { host, port, strictPort: true, ws: { host, clientPort: port } }
+  // PROTOTYPE (grill-design, site placement): the browser build reads ballestrecords.com through this, so the round's
+  // pictures show real prefabs. Never merged.
+  const proxy = {
+    "/proto-site": {
+      target: "https://ballestrecords.com",
+      changeOrigin: true,
+      rewrite: (p: string) => p.replace(/^\/proto-site/, "")
+    }
+  }
+  return { host, port, strictPort: true, ws: { host, clientPort: port }, proxy }
 }
 
 export default defineConfig(() => {

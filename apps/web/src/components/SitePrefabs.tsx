@@ -34,7 +34,7 @@ const SEARCH_DELAY_MS = 300
 const pageOf = (slug: string) => `${SITE_URL}/prefab/${encodeURIComponent(slug)}`
 
 /** The site's own picture of the prefab, asked for once the row comes into view; a glyph until then and without one. */
-function SiteThumbnail({ slug }: { readonly slug: string }) {
+export function SiteThumbnail({ size = "size-6", slug }: { readonly size?: string; readonly slug: string }) {
   const { ref, seen } = useSeen()
   const [url, setUrl] = useState<string | null>(null)
   useEffect(() => {
@@ -51,17 +51,17 @@ function SiteThumbnail({ slug }: { readonly slug: string }) {
     <span ref={ref} className="flex shrink-0">
       {url === null
         ? (
-          <span className={cn("grid size-6 place-items-center rounded-control text-fg-secondary", THUMBNAIL_TILE)}>
+          <span className={cn("grid place-items-center rounded-control text-fg-secondary", size, THUMBNAIL_TILE)}>
             <IconWorld className="size-4" />
           </span>
         )
-        : <img src={url} alt="" className={cn("size-6 rounded-control object-cover", THUMBNAIL_TILE)} />}
+        : <img src={url} alt="" className={cn("rounded-control object-cover", size, THUMBNAIL_TILE)} />}
     </span>
   )
 }
 
 /** A site prefab's menu, from its ⋮ and from a right-click. */
-function SitePrefabMenuItems({ prefab }: { readonly prefab: SitePrefab }) {
+export function SitePrefabMenuItems({ prefab }: { readonly prefab: SitePrefab }) {
   const hasProject = useEditor((s) => s.project?.current != null)
   const inDefinition = useOpenPrefab() !== null
   const noTab = useEditor(noTabOpen)
@@ -143,7 +143,7 @@ function SitePrefabRow({ prefab }: { readonly prefab: SitePrefab }) {
 }
 
 /** Sign in, or who is signed in with a way out: what uploading needs. */
-function SiteAccountButton() {
+export function SiteAccountButton() {
   const account = useEditor((s) => s.siteAccount)
   const [signingIn, setSigningIn] = useState(false)
   if (account._tag === "SignedIn") {
@@ -188,11 +188,8 @@ interface Answer {
   readonly gallery: Gallery
 }
 
-/**
- * ballestrecords.com's gallery (docs/DESKTOP.md § Prefabs), searched by the panel's filter, most favourited first, a page
- * at a time. Desktop only: the page's own requests stay on its own origin, so main asks the site.
- */
-export function SitePrefabsSection({ query }: { readonly query: string }) {
+/** The site's gallery for `query`: what it answered, and how to ask again or for the next page. */
+export function useSiteGallery(query: string) {
   const [attempt, setAttempt] = useState(0)
   const [answer, setAnswer] = useState<Answer | null>(null)
   useEffect(() => {
@@ -219,48 +216,70 @@ export function SitePrefabsSection({ query }: { readonly query: string }) {
       setAnswer({ query, attempt, gallery: { _tag: "Loaded", page: joined, more: false } })
     })
   }
+  return { gallery, retry: () => setAttempt((n) => n + 1), more }
+}
+
+/** The section's head: its name, what it is in a tooltip, and the sign-in. */
+export function SiteHeading() {
+  return (
+    <div className="flex items-center justify-between gap-2 px-2">
+      <Tooltip>
+        <TooltipTrigger render={<div className="w-fit" />}>
+          <SectionTitle>ballestrecords.com</SectionTitle>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          Players' prefabs. Placing one keeps a copy in the project, or in the game without one.
+        </TooltipContent>
+      </Tooltip>
+      <SiteAccountButton />
+    </div>
+  )
+}
+
+/** The gallery's rows, or what stands in for them: loading, unreachable, empty. */
+export function SiteGalleryBody({ query, site }: { readonly query: string; readonly site: ReturnType<typeof useSiteGallery> }) {
+  const { gallery, more, retry } = site
+  return gallery._tag === "Loading"
+    ? <EmptySection line="Loading…" />
+    : gallery._tag === "Unreachable"
+    ? (
+      <EmptySection line="Couldn't reach ballestrecords.com.">
+        <Button variant="outline" size="sm" onClick={retry}>Try again</Button>
+      </EmptySection>
+    )
+    : gallery.page.prefabs.length === 0
+    ? <EmptySection line={query.trim() === "" ? "No prefabs yet." : "Nothing matches the filter."} />
+    : (
+      <>
+        <ul className="flex flex-col gap-0.5">
+          {gallery.page.prefabs.map((prefab) => <SitePrefabRow key={prefab.slug} prefab={prefab} />)}
+        </ul>
+        {gallery.page.next !== null && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={gallery.more}
+            onClick={() => {
+              if (gallery.page.next !== null) more(gallery.page, gallery.page.next)
+            }}
+          >
+            {gallery.more ? "Loading…" : `More (${gallery.page.total - gallery.page.prefabs.length})`}
+          </Button>
+        )}
+      </>
+    )
+}
+
+/**
+ * ballestrecords.com's gallery (docs/DESKTOP.md § Prefabs), searched by the panel's filter, most favourited first, a page
+ * at a time. Desktop only: the page's own requests stay on its own origin, so main asks the site.
+ */
+export function SitePrefabsSection({ query }: { readonly query: string }) {
+  const site = useSiteGallery(query)
   return (
     <section className="flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-2 px-2">
-        <Tooltip>
-          <TooltipTrigger render={<div className="w-fit" />}>
-            <SectionTitle>ballestrecords.com</SectionTitle>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            Players' prefabs. Placing one keeps a copy in the project, or in the game without one.
-          </TooltipContent>
-        </Tooltip>
-        <SiteAccountButton />
-      </div>
-      {gallery._tag === "Loading"
-        ? <EmptySection line="Loading…" />
-        : gallery._tag === "Unreachable"
-        ? (
-          <EmptySection line="Couldn't reach ballestrecords.com.">
-            <Button variant="outline" size="sm" onClick={() => setAttempt((n) => n + 1)}>Try again</Button>
-          </EmptySection>
-        )
-        : gallery.page.prefabs.length === 0
-        ? <EmptySection line={query.trim() === "" ? "No prefabs yet." : "Nothing matches the filter."} />
-        : (
-          <>
-            <ul className="flex flex-col gap-0.5">
-              {gallery.page.prefabs.map((prefab) => <SitePrefabRow key={prefab.slug} prefab={prefab} />)}
-            </ul>
-            {gallery.page.next !== null && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={gallery.more}
-                onClick={() => {
-                  if (gallery.page.next !== null) more(gallery.page, gallery.page.next)
-                }}
-              >
-                {gallery.more ? "Loading…" : `More (${gallery.page.total - gallery.page.prefabs.length})`}
-              </Button>
-            )}
-          </>
-        )}
+      <SiteHeading />
+      <SiteGalleryBody query={query} site={site} />
     </section>
   )
 }
