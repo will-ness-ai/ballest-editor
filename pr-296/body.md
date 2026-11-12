@@ -54,8 +54,14 @@ The web review build has no gallery (`capabilities.site` is false). `BALLEST_REC
   A gallery prefab placed: copied into Project and placed as an instance:
   ![A placed gallery prefab](https://github.com/will-ness-ai/ballest-editor/raw/pr-296-evidence/pr-296/3-placed.png)
 
-  Upload, with the picture's view turned (not sent):
-  ![Upload to ballestrecords.com dialog](https://github.com/will-ness-ai/ballest-editor/raw/pr-296-evidence/pr-296/4-upload.png)
+  Upload, the picture at the site's default view, then turned (not sent):
+  ![Upload dialog at the default view](https://github.com/will-ness-ai/ballest-editor/raw/22e38b5e010f8168581c48da4244b1b60be67b2e/pr-296/5-upload-default.png)
+  ![Upload dialog with the view turned](https://github.com/will-ness-ai/ballest-editor/raw/22e38b5e010f8168581c48da4244b1b60be67b2e/pr-296/4-upload.png)
+
+- **Preview framing fix** (506dd82): the preview measured the prefab's box before its world matrices were worked out, so it framed a box at the origin.
+  **Before:** the prefab sat high in the frame and swung toward the edge as it turned; in a map far from the origin it drew nothing at all.
+  ![Upload preview before the fix](https://github.com/will-ness-ai/ballest-editor/raw/3009692dbacd1441832325729949faf1d230938d/pr-296/4-upload.png)
+  **After:** centred, and it turns in place (the two pictures above). Checked in the browser too: the preview of a seeded map now matches the Prefabs panel's thumbnail of the same items.
 
 - **Tests**, all new, all passing:
 
@@ -93,5 +99,5 @@ Uploads post to the live site under the player's Steam account, so a bug there i
 - Tests written first: the IPC and action tests were written alongside the code, not strictly first.
 - `/code-review`: not run.
 - `/codebase-design`: not run.
-- In the app: browsing, placing and the upload dialog in the desktop dev app on Windows against the live site; no upload sent. `pnpm check:changed` passes (lint, knip, dupes, typecheck, tests); dprint couldn't download its plugins in the cloud, so the same plugin versions from npm were run on the changed files, clean.
+- In the app: browsing, placing and the upload dialog (default view centred, turns in place, colours match the panel thumbnail) in the desktop dev app on Windows against the live site; no upload sent. `pnpm check:changed` passes (lint, knip, dupes, typecheck, tests); dprint couldn't download its plugins in the cloud, so the same plugin versions from npm were run on the changed files, clean.
 - `main` merged: branch is on `main` as of v0.3.2; CI runs `pnpm check:everything`.
